@@ -55,6 +55,6 @@ private:
     int64_t volume_until_ = 0;
     std::string message_;
     const BeautyImage* portrait_image_ = nullptr;
-    std::unique_ptr<LvglImage> portrait_decoded_;
+    lv_img_dsc_t portrait_dsc_{};
     std::string emotion_name_;
 };

@@ -5,7 +5,6 @@
 #include "audio_codec.h"
 #include "beauty_emotions.h"
 #include "board.h"
-#include "jpeg_to_image.h"
 #include "lvgl_image.h"
 #include "lvgl_theme.h"
 
@@ -44,7 +43,6 @@ FoloDisplay::~FoloDisplay() {
     chat_message_label_ = nullptr;
     preview_image_ = nullptr;
     preview_image_cached_.reset();
-    portrait_decoded_.reset();
 }
 
 void FoloDisplay::SetupUI() {
@@ -68,8 +66,8 @@ void FoloDisplay::SetupUI() {
     lv_obj_add_flag(notification_label_, LV_OBJ_FLAG_HIDDEN);
 
     portrait_obj_ = lv_image_create(screen);
-    lv_obj_set_pos(portrait_obj_, 56, 82);  // 128×128 居中于原 192×192 人物区
-    lv_obj_set_size(portrait_obj_, 128, 128);
+    lv_obj_set_pos(portrait_obj_, 72, 98);  // 96×96 居中于原 192×192 人物区
+    lv_obj_set_size(portrait_obj_, 96, 96);
     lv_obj_set_style_img_opa(portrait_obj_, LV_OPA_COVER, 0);
 
     preview_image_ = lv_image_create(screen);
@@ -220,22 +218,18 @@ void FoloDisplay::RefreshPortrait() {
 }
 
 void FoloDisplay::UpdatePortraitImage(const BeautyImage* img) {
-    portrait_decoded_.reset();
     if (img == nullptr || img->data == nullptr || img->size == 0) return;
 
-    uint8_t* decoded = nullptr;
-    size_t out_len = 0, w = 0, h = 0, stride = 0;
-    if (jpeg_to_image(img->data, img->size, &decoded, &out_len, &w, &h, &stride) != ESP_OK ||
-        decoded == nullptr) {
-        ESP_LOGE(TAG, "beauty JPEG decode failed: %s", img->name ? img->name : "?");
-        return;
-    }
+    // 直接指向闪存中的 RGB565 像素，由 LVGL 直接渲染：零内存占用、无需解码。
+    portrait_dsc_.header.magic = LV_IMAGE_HEADER_MAGIC;
+    portrait_dsc_.header.cf = LV_COLOR_FORMAT_RGB565;
+    portrait_dsc_.header.w = img->width;
+    portrait_dsc_.header.h = img->height;
+    portrait_dsc_.header.stride = img->width * 2;
+    portrait_dsc_.data_size = static_cast<uint32_t>(img->size);
+    portrait_dsc_.data = img->data;
 
-    portrait_decoded_ = std::make_unique<LvglAllocatedImage>(
-        decoded, out_len, static_cast<int>(w), static_cast<int>(h),
-        static_cast<int>(stride), LV_COLOR_FORMAT_RGB565);
-
-    lv_image_set_src(portrait_obj_, portrait_decoded_->image_dsc());
+    lv_image_set_src(portrait_obj_, &portrait_dsc_);
 }
 
 void FoloDisplay::RefreshContent() {

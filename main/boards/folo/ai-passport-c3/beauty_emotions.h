@@ -6,8 +6,10 @@
 enum class PortraitState;  // defined in pixel_portrait.h
 
 struct BeautyImage {
-    const uint8_t* data;
+    const uint8_t* data;  // RGB565, little-endian, stored in flash
     size_t size;
+    uint16_t width;
+    uint16_t height;
     const char* name;
 };
 
